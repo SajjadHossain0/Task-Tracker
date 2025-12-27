@@ -227,8 +227,8 @@ function addTask() {
 }
 .modal {
   background: white;
-  width: 50%;
-  height: 60%;
+  width: 500px;
+  max-height: 80vh;
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -251,7 +251,7 @@ function addTask() {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+   overflow-y: auto;
 }
 .input-fields {
   display: flex;
@@ -268,7 +268,12 @@ function addTask() {
 }
 .textarea { resize: none; min-height: 80px; }
 .modal-footer {
-  padding: 15px 20px;
+  display: flex;
+  margin-left: auto;
+  color: #3ca077;
+  text-align: right;
+  right: 0;
+  padding: 10px 10%;
   border-top: 1px solid #eee;
 }
 .full {

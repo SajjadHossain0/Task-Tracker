@@ -150,7 +150,9 @@ function closeTaskModal() {
 h1 {
   margin-bottom: 20px;
 }
-
+h2{
+  color: white;
+}
 .filter-bar {
   display: flex;
   gap: 15px;
@@ -182,13 +184,13 @@ h1 {
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 15px;}
 
-  /* Scrollable */
+  /* Scrollable 
   //max-height: 500px;
   //overflow-y: auto;
   //padding-right: 5px;
-}
+*/
 
 
 .task-card {
@@ -239,54 +241,113 @@ h1 {
   inset: 0;
   background: rgba(0,0,0,0.4);
   display: flex;
+  align-items: center;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .modal {
   background: white;
-  width: 60%;
-  max-width: 700px;
-  border-radius: 10px;
+  width: 520px;
+  max-width: 90%;
+  max-height: 85vh;
+  border-radius: 14px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 20px 50px regb(0,0,0,0.25);
+  animation: modalPop0.25s ease;
 }
 
+/*animation */
+@keymodalPop{
+  form{
+    opacity: 0;
+    transform: scale(0.9);
+  } to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 .modal-header {
+  background-color: #3ca077;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  border-bottom: 1px solid #eee;
+
 }
 
 .modal-header h2 {
+  font-size: 18px;
   margin: 0;
 }
 
 .close-btn {
-  background: transparent;
+  
   border: none;
+  padding: 6px;
+  background: transparent;
+  transition: 0.2s;
   cursor: pointer;
 }
-
+.close-btn:hover{
+  background: transparent;
+}
 .modal-body {
   padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  overflow-y: auto;
+  color: #374151;
+  line-height: 1.6;
+}
+.modal-body p{
+  margin-bottom: 10px;
 }
 
+.modal-body strong{
+ color: #111827;
+}
+
+.file-preview {
+margin-top: 16px;
+padding: 12px;
+border-radius: 10px;
+background: #f9fafb;
+border: 1px solid #e5e7eb;
+}
 .file-preview img {
-  max-width: 100%;
-  border-radius: 6px;
   margin-top: 10px;
+  max-width: 100%;
+ border-radius: 8px;
 }
 
 .file-preview a {
   color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+  text-decoration: none;
+}
+ a:hover{
   text-decoration: underline;
 }
+img:hover{
+  text-decoration: underline;
+}
+.file-link{
+  color: #3ca077;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.file {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  background: #e0e7ff;
+  color: #3730a3;
+  margin-left: 6px;
+}
+
 </style>

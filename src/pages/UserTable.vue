@@ -1,6 +1,42 @@
 <script setup>
+
 import {ref, computed} from "vue";
 import {X, MoreVertical} from "lucide-vue-next";
+
+//Dropdown//
+ const openDropdownId = ref(null);
+const dropdownPosition = ref({ top: 0, left: 0 });
+
+function toggleDropdown(userId, event) {
+  if (openDropdownId.value === userId) {
+    openDropdownId.value = null;
+    return;
+  }
+
+  const rect = event.currentTarget.getBoundingClientRect();
+  const dropdownHeight = 250; // max dropdown height
+  const dropdownWidth = 180;
+  const viewportHeight = window.innerHeight;
+  const viewportWidth = window.innerWidth;
+
+  // Vertical position
+  let top = rect.bottom + 6;
+  if (top + dropdownHeight > viewportHeight) {
+    top = rect.top - dropdownHeight - 6; // show above button if overflow
+  }
+
+  // Horizontal position
+  let left = rect.left;
+  if (left + dropdownWidth > viewportWidth) {
+    left = viewportWidth - dropdownWidth - 10; // fit to viewport
+  }
+
+  dropdownPosition.value = { top, left };
+  openDropdownId.value = userId;
+}
+
+
+
 
 // Example user data
 const users = ref([
@@ -37,7 +73,29 @@ const showEditModal = ref(false);
 const showDeleteModal = ref(false);
 const selectedUser = ref(null);
 
-// Actions
+// handleclick and onmount//
+
+function handleClickOutside(event) {
+  if (!event.target.closest(".dropdown") &&
+      !event.target.closest(".dropdown-wrapper")) {
+    openDropdownId.value = null;
+  }
+}
+
+import { onMounted, onBeforeUnmount } from "vue";
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutside);
+});
+
+
+
+//Ctions//
+
 function openView(user) {
   selectedUser.value = {...user};
   showViewModal.value = true;
@@ -72,7 +130,8 @@ function deleteUser() {
 
 <template>
   <div class="page">
-    <h1>User Management</h1>
+    <header class="page-header">
+ <h1>User Management</h1>
 
     <!-- Search -->
     <input
@@ -81,9 +140,11 @@ function deleteUser() {
         placeholder="Search users..."
         class="search-input"
     />
+    </header>
+  
 
     <!-- Users Table -->
-    <div class="overflow-x-auto">
+    <div class="table-wrapper">
       <table class="users-table">
         <thead>
         <tr>
@@ -103,17 +164,20 @@ function deleteUser() {
           <td class="relative">
             <!-- Action dropdown -->
             <div class="dropdown-wrapper">
-              <button @click="user.showDropdown = !user.showDropdown">
+              <button @click="toggleDropdown(user.id, $event )">
                 <MoreVertical class="w-5 h-5"/>
               </button>
-              <div v-if="user.showDropdown" class="dropdown">
+              <div v-if="openDropdownId === user.id" class="dropdown" :style="{
+                top: dropdownPosition.top + 'px',
+                left: dropdownPosition.left + 'px'
+              }">
                 <ul>
-                  <li @click="openView(user); user.showDropdown=false">View</li>
-                  <li @click="openEdit(user); user.showDropdown=false">Edit</li>
-                  <li @click="openDelete(user); user.showDropdown=false">Delete</li>
-                  <li @click="updateRole(user, 'User'); user.showDropdown=false">Make User</li>
-                  <li @click="updateRole(user, 'Admin'); user.showDropdown=false">Make Admin</li>
-                  <li @click="updateRole(user, 'Project Manager'); user.showDropdown=false">Make Project Manager</li>
+                  <li @click="openView(user); openDropdownId=null">View</li>
+                  <li @click="openEdit(user); openDropdownId=null">Edit</li>
+                  <li @click="openDelete(user); openDropdownId=null">Delete</li>
+                  <li @click="updateRole(user, 'User'); openDropdownId=null">Make User</li>
+                  <li @click="updateRole(user, 'Admin'); openDropdownId=null">Make Admin</li>
+                  <li @click="updateRole(user, 'Project Manager'); openDropdownId=null">Make Project Manager</li>
                 </ul>
               </div>
             </div>
@@ -196,26 +260,40 @@ function deleteUser() {
 <style scoped>
 .page {
   background-color: #f4f6f8;
-  padding: 30px;
+  padding: 0px;
   min-height: 100vh;
   color: #333;
 }
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between; /* left & right */
+  align-items: center;
+  padding: 15px 30px ;
+  background:#ffffff;
+  border-bottom: 1px solid #ddd;
 
-h1 {
+}
+
+.page-header h1 {
   font-size: 28px;
   font-weight: 700;
-  margin-bottom: 20px;
+  margin:0;
 }
 
 /* Search */
 .search-input {
+  width: 260px;
+  display: flex;
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid #cbd5e0;
-  width: 100%;
+  /*width: 100%;
   max-width: 300px;
   margin-bottom: 16px;
-  outline: none;
+  outline: none;*/
   transition: all 0.2s ease;
 }
 
@@ -223,28 +301,53 @@ h1 {
   border-color: #3ca077;
   box-shadow: 0 0 5px rgba(60, 160, 119, 0.4);
 }
+/* table-wrapper*/
+
+.table-wrapper {
+  max-height: 250px ;/* header + pagination বাদ */
+  overflow-y: auto;
+
+}
+
 
 /* Table */
 .users-table {
+ 
   width: 100%;
   border-collapse: collapse;
   background-color: #fff;
   border-radius: 10px;
-  overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.users-table thead th {
+  max-height: 250px;
+  top: 0;
+  background: #ffffff;
+  z-index: 10;
+}
+
+/*.users-table tbody tr {
+  height: 44px;   
+}*/
+
+
 th, td {
-  padding: 14px;
+  padding: 8px 12px;
   text-align: left;
   border-bottom: 1px solid #e2e8f0;
   font-size: 14px;
+  line-height: 1.4;
 }
 
 tbody tr:hover {
   background-color: #f1f5f9;
 }
 
+/* Remove dropdown hover color */
+.dropdown ul li:hover {
+  background-color: transparent;
+}
 /* Role badges */
 .role {
   padding: 4px 10px;
@@ -267,35 +370,49 @@ tbody tr:hover {
 }
 
 /* Dropdown */
-.dropdown-wrapper {
-  position: relative;
-  display: inline-block;
-}
+/*.dropdown-wrapper {
+  height: calc(100vh - 140px);
+  overflow: auto;
+}*/
 
 .dropdown-wrapper button {
-  border: 1px solid #cbd5e0;
-  border-radius: 6px;
-  background: #fff;
-  padding: 6px;
+  border: none;
+  background:transparent;
+  padding: 4px;
   cursor: pointer;
 }
 
 .dropdown-wrapper button:hover {
-  background-color: #f3f4f6;
+  background-color: transparent;
 }
 
+.table-wrapper {
+  max-height: 400px; /* header + pagination adjust */
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+/* Table */
+.users-table thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 10;
+}
+
+/* Dropdown */
 .dropdown {
+  max-height: 250px;
+  overflow-y: auto; /* scroll if options exceed */
   position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
   width: 180px;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  z-index: 50;
+  z-index: 9999;
 }
+
 
 .dropdown ul {
   list-style: none;
@@ -311,15 +428,17 @@ tbody tr:hover {
 }
 
 .dropdown ul li:hover {
-  background-color: #f3f4f6;
+  background-color: transparent;
 }
 
 /* Pagination */
 .pagination {
-  margin-top: 20px;
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  padding: 10px 0;
+  background: #f4f6f8;
 }
 
 .pagination button {

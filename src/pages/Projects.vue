@@ -84,13 +84,16 @@ function openProject(id) {
         <h2>Create Project</h2>
         <input v-model="newProject.name" placeholder="Project Name" class="input" />
         <textarea v-model="newProject.description" placeholder="Project Description" class="textarea"></textarea>
-        <button class="btn full" @click="createProject">Create</button>
+        <button class="btn" @click="createProject">Create</button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+  h2{
+    text-align: center;
+  }
 .page {
   padding: 20px;
 }
@@ -123,8 +126,14 @@ function openProject(id) {
   border-radius: 6px;
   cursor: pointer;
   display: flex;
-  align-items: center;
   gap: 6px;
+  text-align: right;
+  justify-items: right;
+}
+button{
+  position: relative;
+  right: 0;
+  margin-left: auto;
 }
 .icon {
   width: 18px;
@@ -137,6 +146,7 @@ function openProject(id) {
   max-height: 500px;
   overflow-y: auto;
   padding-right: 5px;
+  padding-left: 5px;
 }
 .card {
   background: white;
@@ -180,6 +190,7 @@ function openProject(id) {
   border: 1px solid #ddd;
   margin: 10px 0;
   border-radius: 6px;
+  box-sizing: border-box;
 }
 .full {
   width: 100%;
@@ -187,6 +198,6 @@ function openProject(id) {
 .empty-state {
   text-align: center;
   color: #888;
-  padding: 20px 0;
+  padding: 20px 20px;
 }
 </style>
