@@ -1,6 +1,6 @@
 <script setup>
 
-import {ref, computed} from "vue";
+import {ref, computed, Text} from "vue";
 import {X, MoreVertical} from "lucide-vue-next";
 
 //Dropdown//
@@ -46,7 +46,20 @@ const users = ref([
   {id: 4, name: "David Lee", email: "david@example.com", role: "User"},
   {id: 5, name: "Eve Taylor", email: "eve@example.com", role: "User"},
 ]);
+// show password//
 
+const showPassword = ref(false)
+
+function togglePassword() {
+  showPassword.value = !showPassword.value
+}
+
+function regeneratePassword() {
+  newUser.value.password = generatePassword()
+}
+
+
+// search query//
 const searchQuery = ref("");
 const currentPage = ref(1);
 const pageSize = 5;
@@ -94,7 +107,7 @@ onBeforeUnmount(() => {
 
 
 
-//Ctions//
+//Actions//
 
 function openView(user) {
   selectedUser.value = {...user};
@@ -126,30 +139,82 @@ function deleteUser() {
   users.value = users.value.filter((u) => u.id !== selectedUser.value.id);
   showDeleteModal.value = false;
 }
+
+// ADD USER MODAL
+const showAddModal = ref(false)
+
+const newUser = ref({
+  name: '',
+  username: '',
+  password: '126',
+  position: '',
+  role: 'User'
+})
+
+// random password generator
+function generatePassword(length = 8) {
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$'
+  let pass = ''
+  for (let i = 0; i < length; i++) {
+    pass += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return pass
+}
+
+function openAddUser() {
+  newUser.value = {
+    name: '',
+    username: '',
+    password: '126',
+    position: '',
+    role: 'User'
+  }
+  showAddModal.value = true
+}
+
+function addUser() {
+  users.value.push({
+    id: Date.now(),
+    name: newUser.value.name,
+    email: newUser.value.username,
+    role: newUser.value.role,
+    position: newUser.value.position,
+    password: newUser.value.password
+  })
+  showAddModal.value = false
+}
+
 </script>
 
 <template>
   <div class="page">
     <header class="page-header">
- <h1>User Management</h1>
+  <h1>User Management</h1>
 
-    <!-- Search -->
+  <div style="display:flex; gap:12px; align-items:center;">
     <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Search users..."
-        class="search-input"
+      v-model="searchQuery"
+      type="text"
+      placeholder="Search users..."
+      class="search-input"
     />
-    </header>
-  
+
+    <button class="add-user-btn" @click="openAddUser">
+      + Add User
+    </button>
+  </div>
+</header>
+
 
     <!-- Users Table -->
     <div class="table-wrapper">
       <table class="users-table">
         <thead>
         <tr>
-          <th>Name</th>
-          <th>Email</th>
+          <th>Fullname</th>
+          <th>Username</th>
+          <th>Position</th>
           <th>Role</th>
           <th>Actions</th>
         </tr>
@@ -158,6 +223,7 @@ function deleteUser() {
         <tr v-for="user in paginatedUsers" :key="user.id">
           <td>{{ user.name }}</td>
           <td>{{ user.email }}</td>
+          <td>{{ user.position }}</td>
           <td>
             <span :class="['role', user.role.replace(' ', '')]">{{ user.role }}</span>
           </td>
@@ -255,6 +321,65 @@ function deleteUser() {
     </div>
 
   </div>
+  <!-- ADD USER MODAL -->
+<div v-if="showAddModal" class="modal-overlay">
+  <div class="modal-box add-user-modal">
+    <div class="modal-header">
+      <h2>Add New User</h2>
+      <button class="cross" @click="showAddModal=false">
+        <X class="w-5 h-5" />
+      </button>
+    </div>
+
+    <div class="modal-body form-page">
+      <label>Full Name</label>
+      <input v-model="newUser.name" placeholder="Enter full name" />
+
+      <div class="form-row">
+        <div class="form-col">
+          <label>Username / Email</label>
+          <input v-model="newUser.username" placeholder="Enter username" />
+        </div>
+
+        <div class="form-col">
+          <label>Password</label>
+          <div class="password-field">
+            <input
+              :type="Text ? 'text' : 'text'"
+              v-model="newUser.password"
+              placeholder="Password"
+            />
+      
+            <button class="regen-btn" @click="regeneratePassword">↻</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col">
+          <label>Position</label>
+          <input v-model="newUser.position" placeholder="Position" />
+        </div>
+
+        <div class="form-col">
+          <label>Role</label>
+          <select v-model="newUser.role">
+            <option>User</option>
+            <option>Admin</option>
+            <option>Project Manager</option>
+          </select>
+        </div>
+      </div>
+    </div> <!-- closes modal-body -->
+
+    <div class="modal-footer">
+      <button class="cancle" @click="showAddModal=false">Cancel</button>
+      <button class="bg-green" @click="addUser">Add User</button>
+    </div>
+  </div>
+</div>
+
+
 </template>
 
 <style scoped>
@@ -468,10 +593,12 @@ tbody tr:hover {
   inset: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  padding-top: 90px; /* header নিচে থাকবে */
   background: rgba(0, 0, 0, 0.4);
-  z-index: 50;
+  z-index: 999;
 }
+
 
 .modal-box {
   background: #fff;
@@ -517,8 +644,17 @@ tbody tr:hover {
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
+  border: transparent;
 }
-
+.modal-footer .cancle{
+  background: #3ca077;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  border: transparent;
+}
 .modal-footer .bg-green:hover {
   background: #36a06c;
 }
@@ -535,4 +671,224 @@ tbody tr:hover {
 .modal-footer .bg-red:hover {
   background: #dc2626;
 }
+
+
+.add-user-btn {
+  background: #3ca077;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-user-btn:hover {
+  background: #329e6a;
+}
+
+/**add-user-madal */
+
+/* ===== Beautiful Add User Modal ===== */
+.add-user-modal {
+  width: 420px;
+  padding: 24px;
+  overflow: hidden; /* scrollbar remove */
+}
+
+
+/* Table clean look */
+.add-user-modal table {
+  box-shadow: none;
+}
+
+.add-user-modal table td {
+  padding: 2px 6px;   /* row gap কম */
+  font-size: 12.5px;
+  vertical-align: middle;
+}
+
+.add-user-modal table td:first-child {
+  font-weight: 600;
+  width: 110px;
+  color: #374151;
+}
+
+/* Password field */
+/* Password field professional look */
+.add-user-modal .password-field {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* more space between input & buttons */
+}
+
+.add-user-modal .password-field input {
+  flex: 1;
+  padding: 10px 14px; /* match other inputs */
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e0;
+}
+
+.add-user-modal .eye-btn,
+.add-user-modal .regen-btn {
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.add-user-modal .eye-btn {
+  cursor: pointer;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-user-modal .regen-btn {
+  border: none;
+  background: #e5f7ef;
+  color: #3ca077;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-user-modal .regen-btn:hover {
+  background: #d1fae5;
+}
+
+
+/* Eye button */
+.eye-btn {
+  cursor: pointer;
+  font-size: 14px;
+ 
+}
+
+/* Regenerate button */
+.regen-btn {
+  border: none;
+  background: #e5f7ef;
+  color: #3ca077;
+  font-weight: bold;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.regen-btn:hover {
+  background: #d1fae5;
+}
+
+/* Modal header polish */
+.cross{
+  border: none;
+  border-radius: none;
+  background: white;
+}
+.add-user-modal .modal-header {
+  margin-bottom: 4px;
+}
+
+.add-user-modal .modal-header h2 {
+  font-size: 20px;
+}
+
+.add-user-modal .modal-header button {
+  padding: 2px;
+}
+/* Footer */
+.add-user-modal .modal-footer {
+  margin-top: 10px;
+}
+
+.add-user-modal .modal-footer button {
+  min-width: 90px;
+  height: 34px;
+  font-size: 13px;
+  border-radius: 5px;
+
+}
+
+/* ===== Page style form ===== */
+.form-page {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-page label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-top: 4px;
+}
+
+/* Modal body inputs professional look */
+.add-user-modal .modal-body input,
+.add-user-modal .modal-body select {
+  width: 100%;
+  padding: 10px 14px; /* spacious padding */
+  font-size: 14px;    /* readable font */
+  border-radius: 8px; /* smooth rounded edges */
+  border: 1px solid #cbd5e0;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.add-user-modal .modal-body input:focus,
+.add-user-modal .modal-body select:focus {
+  border-color: #3ca077;
+  box-shadow: 0 0 6px rgba(60, 160, 119, 0.25);
+}
+
+/* Form labels */
+.add-user-modal label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* Form row spacing */
+.add-user-modal .form-row {
+  display: flex;
+  gap: 16px;   /* more breathing space */
+  margin-bottom: 14px;
+}
+
+
+
+/* Two column row */
+.add-user-modal .form-row {
+  display: flex;
+  gap: 16px; /* professional spacing */
+  margin-bottom: 16px; /* row er niche spacing */
+}
+
+.form-col {
+  flex: 1;
+}
+
+
+.add-user-modal .modal-body input,
+.add-user-modal .modal-body select {
+  width: 100%;
+  padding: 12px 14px;  /* spacious padding */
+  font-size: 14px;      /* readable font */
+  border-radius: 8px;   /* smooth rounded edges */
+  border: 1px solid #cbd5e0;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.add-user-modal .modal-body input:focus,
+.add-user-modal .modal-body select:focus {
+  border-color: #3ca077;
+  box-shadow: 0 0 6px rgba(60, 160, 119, 0.25);
+}
+
+
 </style>
