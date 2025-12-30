@@ -33,19 +33,37 @@
 </template>
 
 <script setup>
-import { ref } from "vue"
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { loginUser } from "@/services/auth";
 
-const username = ref("")
-const password = ref("")
+const username = ref("");
+const password = ref("");
+const loading = ref(false);
 
-function handleLogin() {
+const router = useRouter();
+
+async function handleLogin() {
   if (!username.value || !password.value) {
-    alert("Please enter username and password")
-    return
+    alert("Please enter username and password");
+    return;
   }
 
-  console.log("Username:", username.value)
-  console.log("Password:", password.value)
+  loading.value = true;
+
+  try {
+    const data = await loginUser(username.value, password.value);
+
+    // 🔐 Save JWT token
+    localStorage.setItem("token", data.token);
+
+    // Redirect to home
+    router.push("/");
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 

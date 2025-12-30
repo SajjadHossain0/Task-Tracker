@@ -7,21 +7,60 @@ import UserTable from "@/pages/UserTable.vue";
 import Profile from "@/pages/Profile.vue";
 import Login from "@/pages/Login.vue";
 
-
-
-const routes = [
-    { path: '/', component: Home },
-    { path: '/users', component: UserTable },
-    { path: '/profile', component: Profile },
-    { path: '/projects', component: Projects },
-    { path: '/projects/:id', component: ProjectDetails },
-    { path: '/tasks', component: Tasks },
-    { path: '/login', component: Login },
-
+const routes = [{
+        path: "/login",
+        component: Login,
+        meta: { public: true }, // ✅ public
+    },
+    {
+        path: "/",
+        component: Home,
+    },
+    {
+        path: "/users",
+        component: UserTable,
+    },
+    {
+        path: "/profile",
+        component: Profile,
+    },
+    {
+        path: "/projects",
+        component: Projects,
+    },
+    {
+        path: "/projects/:id",
+        component: ProjectDetails,
+    },
+    {
+        path: "/tasks",
+        component: Tasks,
+    },
 ];
 
-
-export default createRouter({
+const router = createRouter({
     history: createWebHistory(),
     routes,
 });
+
+
+
+
+router.beforeEach((to, from, next) => {
+    const token = localStorage.getItem("token");
+
+    // 🔐 If route is protected & no token
+    if (!to.meta.public && !token) {
+        next("/login");
+    }
+    // 🚫 Login page এ গেলে token থাকলে redirect
+    else if (to.path === "/login" && token) {
+        next("/");
+    }
+    // ✅ All good
+    else {
+        next();
+    }
+});
+
+export default router;

@@ -55,9 +55,10 @@
         <div class="dropdown-item">
           Profile
         </div>
-        <div class="dropdown-item logout-item">
-          Logout
-        </div>
+        <div class="dropdown-item logout-item" @click="handleLogout">
+  Logout
+</div>
+
       </div>
     </transition>
   </div>
@@ -136,9 +137,16 @@ function handleProfileClick() {
 }
 
 function handleLogout() {
-  menuOpen.value = false;
-  alert("Logged out!");
+  // 1️⃣ Remove token
+  localStorage.removeItem("token")
+
+  // 2️⃣ Close dropdown
+  menuOpen.value = false
+
+  // 3️⃣ Redirect to login
+  router.push("/login")
 }
+
 
 // Toggle sidebar icon + emit event to parent
 function handleSidebarToggle() {
