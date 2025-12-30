@@ -2,6 +2,8 @@
 import { ref, computed } from "vue";
 import { Plus, FolderKanban } from "lucide-vue-next";
 import { useRouter } from "vue-router";
+import { X } from "lucide-vue-next"
+
 
 const router = useRouter();
 
@@ -81,7 +83,12 @@ function openProject(id) {
     <!-- ADD PROJECT MODAL -->
     <div v-if="showModal" class="modal-bg" @click.self="showModal = false">
       <div class="modal">
-        <h2>Create Project</h2>
+          <div class="modal-header">
+          <h2>Create Project</h2>
+          <button class="close-btn" @click="showModal = false">
+            <X class="icon" />
+          </button>
+        </div>
         <input v-model="newProject.name" placeholder="Project Name" class="input" />
         <textarea v-model="newProject.description" placeholder="Project Description" class="textarea"></textarea>
         <button class="btn" @click="createProject">Create</button>
@@ -184,6 +191,21 @@ button{
   width: 360px;
   border-radius: 10px;
 }
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+}
+.modal-header h2 { margin: 0; }
+.close-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
 .input, .textarea {
   width: 100%;
   padding: 10px;

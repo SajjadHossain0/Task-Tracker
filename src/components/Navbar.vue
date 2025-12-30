@@ -6,29 +6,84 @@
     </button>
 
     <div class="title">Riggcorp Task Tracker</div>
+  
+<div class="right-section" ref="avatarSection">
+  <!-- Notification -->
+  <div class="notification-wrapper" @click.stop="toggleNotification">
+    <BellRing class="bell-icon" />
 
-    <!-- Profile & Dropdown -->
-    <div class="right-section" ref="avatarSection" @click="toggleMenu">
-      <img src="https://i.pravatar.cc/40" alt="avatar" class="avatar"/>
+    <!-- Badge -->
+    <span v-if="unreadCount()" class="badge">
+      {{ unreadCount() }}
+    </span>
 
-      <div v-if="menuOpen" class="dropdown">
-        <div class="dropdown-item" @click="handleProfileClick">
-          <UserRound class="icon"/>
-          <span>Profile</span>
+    <!-- Dropdown -->
+    <transition name="fade-slide">
+      <div
+        v-if="notificationOpen"
+        class="notification-dropdown"
+      >
+        <div
+          v-for="item in notifications"
+          :key="item.id"
+          class="notification-item"
+          :class="{ read: item.read }"
+          @click="markAsRead(item)"
+        >
+          {{ item.text }}
         </div>
-        <div class="dropdown-item logout-item" @click="handleLogout">
-          <LogOut class="icon"/>
-          <span>Logout</span>
+
+        <div
+          v-if="notifications.length === 0"
+          class="empty"
+        >
+          No notifications
         </div>
       </div>
-    </div>
+    </transition>
+  </div>
+
+  <!-- Avatar -->
+  <div class="avatar-wrapper" @click.stop="toggleMenu">
+    <img
+      src="https://i.pravatar.cc/40"
+      class="avatar"
+    />
+
+    <transition name="fade-slide">
+      <div v-if="menuOpen" class="dropdown">
+        <div class="dropdown-item">
+          Profile
+        </div>
+        <div class="dropdown-item logout-item">
+          Logout
+        </div>
+      </div>
+    </transition>
+  </div>
+</div>
+
+
   </nav>
 </template>
 
 <script setup>
+
+import { BellRing } from 'lucide-vue-next';
 import { ref, onMounted, onBeforeUnmount, defineEmits } from 'vue';
 import { UserRound, LogOut, PanelRightClose, PanelRightOpen } from "lucide-vue-next";
 import { useRouter } from 'vue-router';
+
+
+
+const notificationOpen = ref(false);
+const notifications = ref([
+  { id: 1, text: "New task assigned", read: false },
+  { id: 2, text: "Project deadline updated", read: false },
+  { id: 3, text: "Comment added to task", read: false },
+  { id: 4, text: "Weekly report ready", read: false },
+]);
+
 
 const emit = defineEmits(['toggleSidebar']);
 
@@ -38,13 +93,32 @@ const sidebarOpen = ref(false);
 
 const router = useRouter();
 
+//unreadCount//
+const unreadCount = () =>
+ notifications.value.filter(n => !n.read).length
+
+//notification//
+function toggleNotification() {
+  notificationOpen.value = !notificationOpen.value;
+  menuOpen.value = false; // profile dropdown close
+}
+
+function markAsRead(item) {
+  item.read = true;
+}
+
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
+  notificationOpen.value = false;
 }
 
 function handleClickOutside(event) {
-  if (menuOpen.value && avatarSection.value && !avatarSection.value.contains(event.target)) {
+  if (
+    avatarSection.value &&
+    !avatarSection.value.contains(event.target)
+  ) {
     menuOpen.value = false;
+    notificationOpen.value = false;
   }
 }
 
@@ -71,6 +145,8 @@ function handleSidebarToggle() {
   sidebarOpen.value = !sidebarOpen.value;
   emit('toggleSidebar');
 }
+
+
 </script>
 
 <style>
@@ -88,6 +164,86 @@ function handleSidebarToggle() {
   left: 0;
   width: 100%;
   z-index: 100;
+}
+
+/* Badge */
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ef4444;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 50%;
+}
+
+/* Notification*/
+
+.notification {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* Notification Dropdown */
+.notification-dropdown {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 240px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  padding: 6px 0;
+}
+
+.notification-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: #f1f5f9;
+}
+
+/* Bell */
+.notification-wrapper {
+  position: relative;
+  cursor: pointer;
+}
+
+
+.notification-item.read {
+  color: #9ca3af;
+}
+
+/* Animation */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.2s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+
+
+/* bell-icon*/
+.bell-icon {
+  width: 20px;
+  height: 20px;
+  color: white;
 }
 
 .toggle-btn {
@@ -113,6 +269,7 @@ function handleSidebarToggle() {
   display: flex;
   align-items: center;
   cursor: pointer;
+  gap: 22px;
   padding-right: 20px;
 }
 

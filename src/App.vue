@@ -1,26 +1,38 @@
 <template>
   <div class="app-container">
     <!-- Fixed Navbar -->
-    <Navbar @toggleSidebar="toggleSidebar" />
+  <Navbar v-if="!isLoginPage" @toggleSidebar="toggleSidebar" />
+
 
     <div class="layout">
       <!-- Fixed Sidebar -->
-      <Sidebar :collapsed="isCollapsed" />
+   <Sidebar v-if="!isLoginPage" :collapsed="isCollapsed" />
+
 
       <!-- Main scrollable content -->
-      <main class="content">
-        <router-view></router-view>
-      </main>
+    <main
+  class="content"
+  :class="{ 'full-width': isLoginPage }"
+>
+  <router-view />
+</main>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from "vue";
+
+import { ref, computed } from "vue";
+import { useRoute } from "vue-router";
 import Navbar from "./components/Navbar.vue";
 import Sidebar from "./components/Sidebar.vue";
 
+
+const route = useRoute();
 const isCollapsed = ref(false);
+const isLoginPage = computed(() => route.path === "/login");
+
 
 function toggleSidebar() {
   isCollapsed.value = !isCollapsed.value;
@@ -28,6 +40,9 @@ function toggleSidebar() {
 </script>
 
 <style>
+
+
+
 html, body {
   margin: 0;
   padding: 0;
@@ -45,7 +60,7 @@ html, body {
 .layout {
   display: flex;
   flex: 1;
-  //margin-top: 10px;
+  margin-top: 10px;
   height: calc(100vh - 60px);
 }
 
@@ -82,4 +97,11 @@ html, body {
 .sidebar.collapsed + .content {
   margin-left: 60px; /* adjust when sidebar collapsed */
 }
+
+
+.full-width {
+  margin-left: 0 !important;
+  padding: 0;
+}
+
 </style>
