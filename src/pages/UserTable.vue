@@ -146,7 +146,7 @@ const showAddModal = ref(false)
 const newUser = ref({
   name: '',
   username: '',
-  password: '126',
+  password: '123456',
   position: '',
   role: 'User'
 })
@@ -154,7 +154,7 @@ const newUser = ref({
 // random password generator
 function generatePassword(length = 8) {
   const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$'
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$_%&*';
   let pass = ''
   for (let i = 0; i < length; i++) {
     pass += chars.charAt(Math.floor(Math.random() * chars.length))
@@ -166,7 +166,7 @@ function openAddUser() {
   newUser.value = {
     name: '',
     username: '',
-    password: '126',
+    password: '123456',
     position: '',
     role: 'User'
   }
