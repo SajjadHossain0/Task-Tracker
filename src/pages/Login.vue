@@ -23,6 +23,14 @@
       <button class="login-btn" @click="handleLogin">
         Login
       </button>
+
+ <!-- 🔥 Toast Popup -->
+  <LoginToast
+    :show="showToast"
+    :message="toastMessage"
+    :type="toastType"
+  />
+
     </div>
 
     <!-- Study Message Button -->
@@ -36,16 +44,26 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { loginUser } from "@/services/auth";
+import LoginToast from "@/components/MassegeToast.vue";
+
 
 const username = ref("");
 const password = ref("");
 const loading = ref(false);
 
+//ToastMesage//
+const showToast = ref(false);
+const toastMessage = ref("");
+const toastType = ref("success");
+
 const router = useRouter();
 
 async function handleLogin() {
   if (!username.value || !password.value) {
-    alert("Please enter username and password");
+    toastMessage.value = "Please enter username & password";
+    toastType.value = "error";
+    showToast.value = true;
+    autoHide();
     return;
   }
 
@@ -54,17 +72,33 @@ async function handleLogin() {
   try {
     const data = await loginUser(username.value, password.value);
 
-    // 🔐 Save JWT token
     localStorage.setItem("token", data.token);
 
-    // Redirect to home
-    router.push("/");
+    toastMessage.value = "Login Successfully";
+    toastType.value = "success";
+    showToast.value = true;
+
+    setTimeout(() => {
+      router.push("/");
+    }, 1000);
+
   } catch (error) {
-    alert(error.message);
+    // toastMessage.value = error.message || "Wrong password, try again";
+     toastMessage.value = error.message || "Login Failed";
+    toastType.value = "error";
+    showToast.value = true;
   } finally {
     loading.value = false;
+    autoHide();
   }
 }
+
+function autoHide() {
+  setTimeout(() => {
+    showToast.value = false;
+  }, 2000);
+}
+
 </script>
 
 <style scoped>
@@ -86,6 +120,7 @@ async function handleLogin() {
   width: 320px;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  position: relative;
 }
 
 /* Title */
