@@ -3,6 +3,8 @@ import { ref, computed } from "vue";
 import { Plus, FolderKanban } from "lucide-vue-next";
 import { useRouter } from "vue-router";
 import { X } from "lucide-vue-next"
+import { MoreVertical } from "lucide-vue-next";
+
 
 
 const router = useRouter();
@@ -45,6 +47,30 @@ function createProject() {
 function openProject(id) {
   router.push(`/projects/${id}`);
 }
+
+
+
+const openMenuId = ref(null);
+
+function toggleMenu(id) {
+  openMenuId.value = openMenuId.value === id ? null : id;
+}
+
+function viewProject(id) {
+  openMenuId.value = null;
+  router.push(`/projects/${id}`);
+}
+
+function editProject(project) {
+  openMenuId.value = null;
+  alert("Edit: " + project.name);
+}
+
+function deleteProject(id) {
+  openMenuId.value = null;
+  projects.value = projects.value.filter(p => p.id !== id);
+}
+
 </script>
 
 <template>
@@ -65,36 +91,65 @@ function openProject(id) {
       </div>
     </div>
 
+    <!-- ADD PROJECT MODAL -->
+<div v-if="showModal" class="modal-bg" @click.self="showModal = false">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Create Project</h2>
+      <button class="close-btn" @click="showModal = false">
+        <X class="icon" />
+      </button>
+    </div>
+
+    <input
+      v-model="newProject.name"
+      placeholder="Project Name"
+      class="input"
+    />
+
+    <textarea
+      v-model="newProject.description"
+      placeholder="Project Description"
+      class="textarea"
+    ></textarea>
+
+    <button class="btn full" @click="createProject">
+      Create
+    </button>
+  </div>
+</div>
+
+
     <!-- PROJECT CARDS -->
     <div class="card-grid">
-      <div class="card" v-for="p in filteredProjects" :key="p.id" @click="openProject(p.id)">
-        <div class="info">
-          <h3>{{ p.name }}</h3>
-          <p>{{ p.description }}</p>
-        </div>
-        <FolderKanban class="icon-big" />
-      </div>
-
-      <div v-if="filteredProjects.length === 0" class="empty-state">
-        No projects found.
-      </div>
-    </div>
-
-    <!-- ADD PROJECT MODAL -->
-    <div v-if="showModal" class="modal-bg" @click.self="showModal = false">
-      <div class="modal">
-          <div class="modal-header">
-          <h2>Create Project</h2>
-          <button class="close-btn" @click="showModal = false">
-            <X class="icon" />
-          </button>
-        </div>
-        <input v-model="newProject.name" placeholder="Project Name" class="input" />
-        <textarea v-model="newProject.description" placeholder="Project Description" class="textarea"></textarea>
-        <button class="btn" @click="createProject">Create</button>
-      </div>
+    <div class="card" v-for="p in filteredProjects" :key="p.id">
+  
+  <!-- LEFT CONTENT -->
+  <div class="card-left" @click="openProject(p.id)">
+    <FolderKanban class="icon-big" />
+    <div class="info">
+      <h3>{{ p.name }}</h3>
+      <p>{{ p.description }}</p>
     </div>
   </div>
+
+<!-- RIGHT THREE DOTS -->
+<div class="card-right">
+  <button class="dots-btn" @click.stop="toggleMenu(p.id, $event)">
+    <MoreVertical />
+  </button>
+
+  <div v-if="openMenuId === p.id" class="dropdown" :style="dropdownStyle">
+    <div @click="viewProject(p.id)">View</div>
+    <div @click="editProject(p)">Edit</div>
+    <div class="danger" @click="deleteProject(p.id)">Delete</div>
+  </div>
+</div>
+
+</div>
+</div>
+  </div>
+  
 </template>
 
 <style scoped>
@@ -146,7 +201,7 @@ button{
   width: 18px;
   height: 18px;
 }
-.card-grid {
+/*.card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
@@ -154,7 +209,17 @@ button{
   overflow-y: auto;
   padding-right: 5px;
   padding-left: 5px;
+}*/
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 5px;
 }
+
 .card {
   background: white;
   padding: 20px;
@@ -163,8 +228,29 @@ button{
   display: flex;
   justify-content: space-between;
   align-items: center;
-  cursor: pointer;
+  cursor: default;
   transition: 0.3s;
+  position: relative;
+}
+.info h3{
+  margin: 0;
+  font-size: 16px;
+
+}
+.card-left{
+  display:flex ;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+}
+.card-right{
+  position: relative;
+}
+.dots-btn{
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
 }
 .card:hover {
   transform: translateY(-4px);
@@ -174,7 +260,7 @@ button{
   height: 40px;
   color: #3ca077;
 }
-.modal-bg {
+/*.modal-bg {
   position: fixed;
   top: 0;
   left: 0;
@@ -191,7 +277,25 @@ button{
   width: 360px;
   border-radius: 10px;
 }
+*/
 
+.modal-bg {
+  position: fixed;
+  inset: 0; /* top, right, bottom, left = 0 */
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100; /* make sure above everything */
+  overflow-y: auto;
+}
+.modal {
+  background: white;
+  padding: 25px;
+  width: 360px;
+  max-width: 90%;
+  border-radius: 10px;
+}
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -221,5 +325,31 @@ button{
   text-align: center;
   color: #888;
   padding: 20px 20px;
+}
+
+/* DROPDOWN MENU */
+.dropdown {
+  position: absolute; /* card er relative parent er upor */
+  top: 100%;          /* button er niche */
+  right: 0;           /* right aligned */
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  width: 140px;
+  z-index: 50;
+}
+
+.dropdown div {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.dropdown div:hover {
+  background: #f3f4f6;
+}
+
+.dropdown .danger {
+  color: #ef4444;
 }
 </style>
