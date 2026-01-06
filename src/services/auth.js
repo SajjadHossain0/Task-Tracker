@@ -12,20 +12,11 @@ export async function loginUser(username, password) {
         }),
     });
 
-    // 🔴 Wrong login or error
+    const data = await response.json();
+
     if (!response.ok) {
-        let errorMessage = "Login failed";
-
-        try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-        } catch (err) {
-
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(data.message || "Login failed");
     }
 
-    // ✅ Correct login
-    return await response.json(); // { token: "JWT_TOKEN" }
+    return data; // { token: "JWT_TOKEN" }
 }

@@ -1,7 +1,17 @@
 <script setup>
 
-import {ref, computed, Text} from "vue";
-import {X, MoreVertical} from "lucide-vue-next";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+
+import { X, MoreVertical } from "lucide-vue-next";
+
+// ✅ ONLY ONCE
+import {
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser as deleteUserApi
+} from "@/api/users";
+
 
 //Dropdown//
  const openDropdownId = ref(null);
@@ -37,15 +47,27 @@ function toggleDropdown(userId, event) {
 
 
 
+const users = ref([]);
+
+//loadUser//
+
+async function loadUsers() {
+  try {
+    users.value = await getUsers();
+  } catch (err) {
+    console.error("Load users error:", err);
+  }
+}
+
 
 // Example user data
-const users = ref([
-  {id: 1, name: "John Doe", email: "john@example.com", role: "User"},
-  {id: 2, name: "Alice Smith", email: "alice@example.com", role: "Project Manager"},
-  {id: 3, name: "Bob Johnson", email: "bob@example.com", role: "Admin"},
-  {id: 4, name: "David Lee", email: "david@example.com", role: "User"},
-  {id: 5, name: "Eve Taylor", email: "eve@example.com", role: "User"},
-]);
+// const users = ref([
+//   {id: 1, name: "John Doe", email: "john@example.com", role: "User"},
+//   {id: 2, name: "Alice Smith", email: "alice@example.com", role: "Project Manager"},
+//   {id: 3, name: "Bob Johnson", email: "bob@example.com", role: "Admin"},
+//   {id: 4, name: "David Lee", email: "david@example.com", role: "User"},
+//   {id: 5, name: "Eve Taylor", email: "eve@example.com", role: "User"},
+// ]);
 // show password//
 
 const showPassword = ref(false)
@@ -68,10 +90,17 @@ const filteredUsers = computed(() =>
     users.value.filter(
         (user) =>
             user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-            user.role.toLowerCase().includes(searchQuery.value.toLowerCase())
+      user.email.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      (user.position && user.position.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
+      user.role.toLowerCase().includes(searchQuery.value.toLowerCase())
     )
 );
+
+// Reset page to 1 when search query changes
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
+
 
 const totalPages = computed(() => Math.ceil(filteredUsers.value.length / pageSize));
 
@@ -95,9 +124,9 @@ function handleClickOutside(event) {
   }
 }
 
-import { onMounted, onBeforeUnmount } from "vue";
 
 onMounted(() => {
+  loadUsers(); // ✅ THIS
   document.addEventListener("click", handleClickOutside);
 });
 
@@ -124,21 +153,27 @@ function openDelete(user) {
   showDeleteModal.value = true;
 }
 
-function updateRole(user, role) {
-  const idx = users.value.findIndex((u) => u.id === user.id);
-  if (idx !== -1) users.value[idx].role = role;
+// function updateRole(user, role) {
+//   const idx = users.value.findIndex((u) => u.id === user.id);
+//   if (idx !== -1) users.value[idx].role = role;
+// }
+
+// function saveEdit() {
+//   const idx = users.value.findIndex((u) => u.id === selectedUser.value.id);
+//   if (idx !== -1) users.value[idx] = {...selectedUser.value};
+//   showEditModal.value = false;
+// }
+//deletUser//
+async function confirmDeleteUser() {
+  try {
+    await deleteUserApi(selectedUser.value.id);
+    await loadUsers();
+    showDeleteModal.value = false;
+  } catch (err) {
+    console.error("Delete user error:", err);
+  }
 }
 
-function saveEdit() {
-  const idx = users.value.findIndex((u) => u.id === selectedUser.value.id);
-  if (idx !== -1) users.value[idx] = {...selectedUser.value};
-  showEditModal.value = false;
-}
-
-function deleteUser() {
-  users.value = users.value.filter((u) => u.id !== selectedUser.value.id);
-  showDeleteModal.value = false;
-}
 
 // ADD USER MODAL
 const showAddModal = ref(false)
@@ -172,17 +207,50 @@ function openAddUser() {
   }
   showAddModal.value = true
 }
+//addUser//
+async function addUser() {
+  try {
+    await createUser({
+      name: newUser.value.name,
+      username: newUser.value.username,
+      password: newUser.value.password,
+      role: newUser.value.role,
+      position: newUser.value.position
+    });
 
-function addUser() {
-  users.value.push({
-    id: Date.now(),
-    name: newUser.value.name,
-    email: newUser.value.username,
-    role: newUser.value.role,
-    position: newUser.value.position,
-    password: newUser.value.password
-  })
-  showAddModal.value = false
+    await loadUsers();
+    showAddModal.value = false;
+  } catch (err) {
+    console.error("Create user error:", err);
+  }
+}
+
+
+//saveEdit//
+async function saveEdit() {
+  try {
+    await updateUser(selectedUser.value.id, {
+      name: selectedUser.value.name,
+      username:selectedUser.value.name,
+      email: selectedUser.value.email,
+      role: selectedUser.value.role,
+      position: selectedUser.value.position
+    });
+    await loadUsers();
+    showEditModal.value = false;
+  } catch (err) {
+    console.error("Update User Error:", err);
+  }
+}
+
+//roleUpdate//
+async function updateRole(user, role) {
+  try {
+    await updateUser(user.id, { role });
+    await loadUsers();
+  } catch (err) {
+    console.error("Role update error:", err);
+  }
 }
 
 </script>
@@ -222,7 +290,7 @@ function addUser() {
         <tbody>
         <tr v-for="user in paginatedUsers" :key="user.id">
           <td>{{ user.name }}</td>
-          <td>{{ user.email }}</td>
+          <td>{{ user.email || user.username}}</td>
           <td>{{ user.position }}</td>
           <td>
             <span :class="['role', user.role.replace(' ', '')]">{{ user.role }}</span>
@@ -254,14 +322,14 @@ function addUser() {
     </div>
 
     <!-- Pagination -->
-    <div class="pagination">
+    <div class="pagination" v-if="totalPages > 1">
       <button :disabled="currentPage===1" @click="currentPage--">Prev</button>
       <span>{{ currentPage }} / {{ totalPages }}</span>
       <button :disabled="currentPage===totalPages" @click="currentPage++">Next</button>
     </div>
 
     <!-- VIEW MODAL -->
-    <div v-if="showViewModal" class="modal-overlay">
+    <div v-if="showViewModal" class="modal-overlay" @click.self="showViewModal=false">
       <div class="modal-box">
         <div class="modal-header">
           <h2>User Details</h2>
@@ -271,29 +339,35 @@ function addUser() {
         </div>
         <div class="modal-body">
           <p><strong>Name:</strong> {{ selectedUser.name }}</p>
-          <p><strong>Email:</strong> {{ selectedUser.email }}</p>
+          <p><strong>Username:</strong> {{ selectedUser.username }}</p>
+          <p><strong>Position:</strong> {{ selectedUser.position }}</p>
           <p><strong>Role:</strong> {{ selectedUser.role }}</p>
         </div>
       </div>
     </div>
 
     <!-- EDIT MODAL -->
-    <div v-if="showEditModal" class="modal-overlay">
-      <div class="modal-box">
+    <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal=false">
+      <div class="modal-box edit-modal">
         <div class="modal-header">
           <h2>Edit User</h2>
           <button @click="showEditModal=false">
             <X class="w-5 h-5"/>
           </button>
         </div>
-        <div class="modal-body">
-          <input v-model="selectedUser.name" placeholder="Name"/>
-          <input v-model="selectedUser.email" placeholder="Email"/>
-          <select v-model="selectedUser.role">
-            <option>User</option>
-            <option>Admin</option>
-            <option>Project Manager</option>
-          </select>
+        <div class="modal-body form-page">
+          <label>Name</label>
+       <input v-model="selectedUser.name" placeholder="Name"/>
+       <label>username</label>
+       <input v-model="selectedUser.username" placeholder="username"/>
+       <label>position</label>
+       <input v-model="selectedUser.position" placeholder="Position"/>
+         <label>Role</label>
+        <select v-model="selectedUser.role">
+        <option>User</option>
+        <option>Admin</option>
+        <option>Project Manager</option>
+</select>
         </div>
         <div class="modal-footer">
           <button class="bg-green" @click="saveEdit">Save</button>
@@ -302,7 +376,7 @@ function addUser() {
     </div>
 
     <!-- DELETE MODAL -->
-    <div v-if="showDeleteModal" class="modal-overlay">
+    <div v-if="showDeleteModal" class="modal-overlay" @click ="handleOverlayClick">
       <div class="modal-box">
         <div class="modal-header">
           <h2>Delete User?</h2>
@@ -315,14 +389,14 @@ function addUser() {
         </div>
         <div class="modal-footer">
           <button @click="showDeleteModal=false">Cancel</button>
-          <button class="bg-red" @click="deleteUser">Delete</button>
+         <button class="bg-red" @click="confirmDeleteUser">Delete</button>
         </div>
       </div>
     </div>
 
   </div>
   <!-- ADD USER MODAL -->
-<div v-if="showAddModal" class="modal-overlay">
+<div v-if="showAddModal" class="modal-overlay" @click.self=" showAddModal = false">
   <div class="modal-box add-user-modal">
     <div class="modal-header">
       <h2>Add New User</h2>
@@ -345,7 +419,7 @@ function addUser() {
           <label>Password</label>
           <div class="password-field">
             <input
-              :type="Text ? 'text' : 'text'"
+              :type="showPassword ? 'text' : 'text'"
               v-model="newUser.password"
               placeholder="Password"
             />
@@ -587,6 +661,25 @@ tbody tr:hover {
   font-weight: 600;
 }
 
+
+/* Edit Modal specific */
+.modal-box.edit-modal {
+  width: 360px; /* halko compact width */
+  max-width: 90%;
+}
+
+/* Inputs & select boxes full width */
+.modal-box.edit-modal .modal-body input,
+.modal-box.edit-modal .modal-body select {
+  width: 100%;
+  margin-bottom: 12px; /* vertical spacing */
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e0;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
 /* Modals */
 .modal-overlay {
   position: fixed;
@@ -617,7 +710,7 @@ tbody tr:hover {
 }
 
 .modal-body input, .modal-body select {
-  width: 100%;
+  width: 360px;
   padding: 10px 12px;
   margin-bottom: 12px;
   border-radius: 8px;
