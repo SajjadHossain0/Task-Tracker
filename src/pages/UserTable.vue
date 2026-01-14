@@ -10,7 +10,7 @@ import {
   createUser,
   updateUser,
   deleteUser as deleteUserApi
-} from "@/api/users";
+} from "@/services/users";
 
 
 //Dropdown//
@@ -46,18 +46,41 @@ function toggleDropdown(userId, event) {
 }
 
 
-
-const users = ref([]);
-
 //loadUser//
-
+const users = ref([]);
 async function loadUsers() {
   try {
-    users.value = await getUsers();
+    const res = await getUsers();
+    console.log("✅ FRONTEND GOT:", res);
+
+    // 🔥 MOST IMPORTANT FIX
+    if (Array.isArray(res)) {
+      users.value = res;
+    } else if (Array.isArray(res.users)) {
+      users.value = res.users;
+    } else if (Array.isArray(res.data)) {
+      users.value = res.data;
+    } else {
+      users.value = [];
+    }
+
+    console.log("✅ USERS ARRAY:", users.value);
+
   } catch (err) {
-    console.error("Load users error:", err);
+    console.error("❌ Load users error:", err);
+    users.value = [];
   }
 }
+
+
+// onMounted(() => {
+//   loadUsers();
+//   document.addEventListener("click", handleClickOutside);
+// });
+
+// onBeforeUnmount(() => {
+//   document.removeEventListener("click", handleClickOutside);
+// });
 
 
 // Example user data
@@ -86,28 +109,24 @@ const searchQuery = ref("");
 const currentPage = ref(1);
 const pageSize = 5;
 
-const filteredUsers = computed(() =>
-    users.value.filter(
-        (user) =>
-            user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      (user.position && user.position.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
-      user.role.toLowerCase().includes(searchQuery.value.toLowerCase())
-    )
-);
-
-// Reset page to 1 when search query changes
-watch(searchQuery, () => {
-  currentPage.value = 1;
+const filteredUsers = computed(() => {
+  const q = searchQuery.value.toLowerCase().trim();
+  return users.value.filter(user => {
+    return (
+      (user.name && user.name.toLowerCase().includes(q)) ||
+      (user.username && user.username.toLowerCase().includes(q)) ||
+      (user.email && user.email.toLowerCase().includes(q)) ||
+      (user.position && user.position.toLowerCase().includes(q)) ||
+      (user.role && user.role.toLowerCase().includes(q))
+    );
+  });
 });
-
-
-const totalPages = computed(() => Math.ceil(filteredUsers.value.length / pageSize));
 
 const paginatedUsers = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
   return filteredUsers.value.slice(start, start + pageSize);
 });
+
 
 // Modals
 const showViewModal = ref(false);
@@ -124,9 +143,9 @@ function handleClickOutside(event) {
   }
 }
 
-
-onMounted(() => {
-  loadUsers(); // ✅ THIS
+onMounted(async () => {
+  await loadUsers();
+  console.log("Loaded Users:", users.value);
   document.addEventListener("click", handleClickOutside);
 });
 
@@ -134,17 +153,22 @@ onBeforeUnmount(() => {
   document.removeEventListener("click", handleClickOutside);
 });
 
-
-
 //Actions//
 
 function openView(user) {
-  selectedUser.value = {...user};
+  selectedUser.value = {
+    ...user,
+    username: user.email // 🔥 FIX
+  };
   showViewModal.value = true;
 }
 
+
 function openEdit(user) {
-  selectedUser.value = {...user};
+  selectedUser.value = {
+    ...user,
+    username: user.email // 🔥 FIX
+  };
   showEditModal.value = true;
 }
 
@@ -212,10 +236,10 @@ async function addUser() {
   try {
     await createUser({
       name: newUser.value.name,
-      username: newUser.value.username,
+      username: newUser.value.username, // ✅ backend email চায়
       password: newUser.value.password,
       role: newUser.value.role,
-      position: newUser.value.position
+      position: newUser.value.position,
     });
 
     await loadUsers();
@@ -231,17 +255,22 @@ async function saveEdit() {
   try {
     await updateUser(selectedUser.value.id, {
       name: selectedUser.value.name,
-      username:selectedUser.value.name,
-      email: selectedUser.value.email,
+      username: selectedUser.value.username,
       role: selectedUser.value.role,
       position: selectedUser.value.position
     });
+
     await loadUsers();
     showEditModal.value = false;
   } catch (err) {
     console.error("Update User Error:", err);
   }
 }
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredUsers.value.length / pageSize);
+});
+
 
 //roleUpdate//
 async function updateRole(user, role) {
@@ -252,6 +281,13 @@ async function updateRole(user, role) {
     console.error("Role update error:", err);
   }
 }
+
+function handleOverlayClick(e) {
+  if (e.target.classList.contains("modal-overlay")) {
+    showDeleteModal.value = false;
+  }
+}
+
 
 </script>
 
@@ -281,7 +317,7 @@ async function updateRole(user, role) {
         <thead>
         <tr>
           <th>Fullname</th>
-          <th>Username</th>
+          <th>Username/Email</th>
           <th>Position</th>
           <th>Role</th>
           <th>Actions</th>
@@ -458,15 +494,17 @@ async function updateRole(user, role) {
 
 <style scoped>
 .page {
+  margin-left: 0;
+  padding-left: 0;
   background-color: #f4f6f8;
-  padding: 0px;
+  width: 100%;
   min-height: 100vh;
   color: #333;
 }
 .page-header {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 50;
   display: flex;
   justify-content: space-between; /* left & right */
   align-items: center;
@@ -503,10 +541,11 @@ async function updateRole(user, role) {
 /* table-wrapper*/
 
 .table-wrapper {
-  max-height: 250px ;/* header + pagination বাদ */
   overflow-y: auto;
-
+  position: relative;
+  z-index: 1;
 }
+
 
 
 /* Table */
@@ -601,9 +640,9 @@ tbody tr:hover {
 
 /* Dropdown */
 .dropdown {
+  position: fixed;   /* 🔥 THIS FIXES EVERYTHING */
   max-height: 250px;
-  overflow-y: auto; /* scroll if options exceed */
-  position: absolute;
+  overflow-y: auto;
   width: 180px;
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -611,6 +650,7 @@ tbody tr:hover {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   z-index: 9999;
 }
+
 
 
 .dropdown ul {
@@ -774,6 +814,8 @@ tbody tr:hover {
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
+  position: relative;
+  z-index: 60;
 }
 
 .add-user-btn:hover {

@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
 
   <!-- PROJECT CARDS -->
   <div class="card-grid">
-    <div class="card" v-for="p in filteredProjects" :key="p.id">
+    <div class="card" v-for="p in filteredProjects" :key="p.id" @click="openProject(p.id)">
       <div class="card-left" @click="openProject(p.id)">
         <FolderKanban class="icon-big"/>
         <div class="info">
@@ -181,7 +181,7 @@ onBeforeUnmount(() => {
     <div class="modal">
       <h2>{{ activeProject.name }}</h2>
       <p>{{ activeProject.description }}</p>
-      <button class="btn full" @click="showViewModal = false">Close</button>
+      <button class="btn" @click="showViewModal = false">Close</button>
     </div>
   </div>
 
@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
   grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); 
   gap:20px; 
   max-height:500px; 
-  overflow-y:auto; 
+ 
   padding:5px; }
 .card { background:white; 
   padding:20px; 
@@ -280,7 +280,9 @@ onBeforeUnmount(() => {
   opacity:0; 
   visibility:hidden; 
   transform:translateY(-10px); 
-  transition:all 0.2s ease; }
+  transition:all 0.2s ease; 
+}
+
 .dropdown.show { 
   opacity:1; 
   visibility:visible; 

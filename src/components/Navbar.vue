@@ -171,7 +171,7 @@ function handleSidebarToggle() {
   top: 0;
   left: 0;
   width: 100%;
-  z-index: 100;
+  z-index: 99999;
 }
 
 /* Badge */
@@ -203,7 +203,7 @@ function handleSidebarToggle() {
   background: #fff;
   border-radius: 6px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  z-index: 100;
+  z-index: 100000;
   padding: 6px 0;
 }
 
