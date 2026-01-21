@@ -1,22 +1,30 @@
 <script setup>
-
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { X, MoreVertical } from "lucide-vue-next";
+import { getUsers, createUser, updateUser, deleteUser as deleteUserApi } from "@/services/users";
 
-// ✅ ONLY ONCE
-import {
-  getUsers,
-  createUser,
-  updateUser,
-  deleteUser as deleteUserApi
-} from "@/services/users";
+// Role mapping: backend vs frontend
+const roleMap = {
+  "User": "ROLE_USER",
+  "Admin": "ROLE_ADMIN",
+  "Project Manager": "ROLE_PROJECT_MANAGER"
+};
 
+const roleMapReverse = {
+  "ROLE_USER": "User",
+  "ROLE_ADMIN": "Admin",
+  "ROLE_PROJECT_MANAGER": "Project Manager"
+};
 
-//Dropdown//
- const openDropdownId = ref(null);
-const dropdownPosition = ref({ top: 0, left: 0 });
+// Header reference
+const headerRef = ref(null)
+function getHeaderHeight() {
+  return headerRef.value ? headerRef.value.offsetHeight : 80;
+}
 
+// Dropdown
+const dropdownPosition = ref({ top: 0, left: 0 })
+const openDropdownId = ref(null);
 function toggleDropdown(userId, event) {
   if (openDropdownId.value === userId) {
     openDropdownId.value = null;
@@ -24,87 +32,53 @@ function toggleDropdown(userId, event) {
   }
 
   const rect = event.currentTarget.getBoundingClientRect();
-  const dropdownHeight = 250; // max dropdown height
+  const dropdownHeight = 250;
   const dropdownWidth = 180;
   const viewportHeight = window.innerHeight;
   const viewportWidth = window.innerWidth;
+  const HEADER_HEIGHT = getHeaderHeight();
 
-  // Vertical position
   let top = rect.bottom + 6;
-  if (top + dropdownHeight > viewportHeight) {
-    top = rect.top - dropdownHeight - 6; // show above button if overflow
-  }
+  const minTop = HEADER_HEIGHT + 12;
+  if (top < minTop) top = minTop;
+  if (top + dropdownHeight > viewportHeight) top = rect.top - dropdownHeight - 6;
+  if (top < minTop) top = minTop;
 
-  // Horizontal position
   let left = rect.left;
-  if (left + dropdownWidth > viewportWidth) {
-    left = viewportWidth - dropdownWidth - 10; // fit to viewport
-  }
+  if (left + dropdownWidth > viewportWidth) left = viewportWidth - dropdownWidth - 10;
 
-  dropdownPosition.value = { top, left };
-  openDropdownId.value = userId;
+  dropdownPosition.value = { top, left }
+  openDropdownId.value = userId
 }
 
-
-//loadUser//
+// Users
 const users = ref([]);
 async function loadUsers() {
   try {
     const res = await getUsers();
-    console.log("✅ FRONTEND GOT:", res);
+    let dataArray = [];
+    if (Array.isArray(res)) dataArray = res;
+    else if (Array.isArray(res.users)) dataArray = res.users;
+    else if (Array.isArray(res.data)) dataArray = res.data;
 
-    // 🔥 MOST IMPORTANT FIX
-    if (Array.isArray(res)) {
-      users.value = res;
-    } else if (Array.isArray(res.users)) {
-      users.value = res.users;
-    } else if (Array.isArray(res.data)) {
-      users.value = res.data;
-    } else {
-      users.value = [];
-    }
-
-    console.log("✅ USERS ARRAY:", users.value);
-
+    // Convert backend roles to frontend for display
+    users.value = dataArray.map(u => ({
+      ...u,
+      role: u.role in roleMapReverse ? u.role : "ROLE_USER", // backend role
+      displayRole: roleMapReverse[u.role] || "User"           // frontend display role
+    }));
   } catch (err) {
-    console.error("❌ Load users error:", err);
+    console.error("Load users error:", err);
     users.value = [];
   }
 }
 
-
-// onMounted(() => {
-//   loadUsers();
-//   document.addEventListener("click", handleClickOutside);
-// });
-
-// onBeforeUnmount(() => {
-//   document.removeEventListener("click", handleClickOutside);
-// });
-
-
-// Example user data
-// const users = ref([
-//   {id: 1, name: "John Doe", email: "john@example.com", role: "User"},
-//   {id: 2, name: "Alice Smith", email: "alice@example.com", role: "Project Manager"},
-//   {id: 3, name: "Bob Johnson", email: "bob@example.com", role: "Admin"},
-//   {id: 4, name: "David Lee", email: "david@example.com", role: "User"},
-//   {id: 5, name: "Eve Taylor", email: "eve@example.com", role: "User"},
-// ]);
-// show password//
-
+// Password
 const showPassword = ref(false)
+function togglePassword() { showPassword.value = !showPassword.value }
+function regeneratePassword() { newUser.value.password = generatePassword() }
 
-function togglePassword() {
-  showPassword.value = !showPassword.value
-}
-
-function regeneratePassword() {
-  newUser.value.password = generatePassword()
-}
-
-
-// search query//
+// Search & Pagination
 const searchQuery = ref("");
 const currentPage = ref(1);
 const pageSize = 5;
@@ -117,7 +91,7 @@ const filteredUsers = computed(() => {
       (user.username && user.username.toLowerCase().includes(q)) ||
       (user.email && user.email.toLowerCase().includes(q)) ||
       (user.position && user.position.toLowerCase().includes(q)) ||
-      (user.role && user.role.toLowerCase().includes(q))
+      (user.displayRole && user.displayRole.toLowerCase().includes(q))
     );
   });
 });
@@ -126,26 +100,24 @@ const paginatedUsers = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
   return filteredUsers.value.slice(start, start + pageSize);
 });
-
+const totalPages = computed(() => Math.ceil(filteredUsers.value.length / pageSize));
 
 // Modals
-const showViewModal = ref(false);
-const showEditModal = ref(false);
-const showDeleteModal = ref(false);
-const selectedUser = ref(null);
+const showViewModal = ref(false)
+const showEditModal = ref(false)
+const showDeleteModal = ref(false)
+const showAddModal = ref(false)
+const selectedUser = ref(null)
 
-// handleclick and onmount//
-
+// Click outside dropdown
 function handleClickOutside(event) {
-  if (!event.target.closest(".dropdown") &&
-      !event.target.closest(".dropdown-wrapper")) {
+  if (!event.target.closest(".dropdown") && !event.target.closest(".dropdown-wrapper")) {
     openDropdownId.value = null;
   }
 }
 
 onMounted(async () => {
   await loadUsers();
-  console.log("Loaded Users:", users.value);
   document.addEventListener("click", handleClickOutside);
 });
 
@@ -153,41 +125,26 @@ onBeforeUnmount(() => {
   document.removeEventListener("click", handleClickOutside);
 });
 
-//Actions//
-
+// Actions
 function openView(user) {
-  selectedUser.value = {
-    ...user,
-    username: user.email // 🔥 FIX
-  };
-  showViewModal.value = true;
+  selectedUser.value = { ...user, displayRole: roleMapReverse[user.role] || "User" }
+  showViewModal.value = true
 }
-
 
 function openEdit(user) {
   selectedUser.value = {
     ...user,
-    username: user.email // 🔥 FIX
-  };
-  showEditModal.value = true;
+    role: roleMapReverse[user.role] || "User" // for dropdown
+  }
+  showEditModal.value = true
 }
 
 function openDelete(user) {
-  selectedUser.value = {...user};
-  showDeleteModal.value = true;
+  selectedUser.value = { ...user }
+  showDeleteModal.value = true
 }
 
-// function updateRole(user, role) {
-//   const idx = users.value.findIndex((u) => u.id === user.id);
-//   if (idx !== -1) users.value[idx].role = role;
-// }
-
-// function saveEdit() {
-//   const idx = users.value.findIndex((u) => u.id === selectedUser.value.id);
-//   if (idx !== -1) users.value[idx] = {...selectedUser.value};
-//   showEditModal.value = false;
-// }
-//deletUser//
+// Confirm delete
 async function confirmDeleteUser() {
   try {
     await deleteUserApi(selectedUser.value.id);
@@ -198,22 +155,17 @@ async function confirmDeleteUser() {
   }
 }
 
-
-// ADD USER MODAL
-const showAddModal = ref(false)
-
+// Add user
 const newUser = ref({
   name: '',
   username: '',
   password: '123456',
   position: '',
   role: 'User'
-})
+});
 
-// random password generator
 function generatePassword(length = 8) {
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$_%&*';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$_%&*';
   let pass = ''
   for (let i = 0; i < length; i++) {
     pass += chars.charAt(Math.floor(Math.random() * chars.length))
@@ -222,26 +174,19 @@ function generatePassword(length = 8) {
 }
 
 function openAddUser() {
-  newUser.value = {
-    name: '',
-    username: '',
-    password: '123456',
-    position: '',
-    role: 'User'
-  }
+  newUser.value = { name: '', username: '', password: '123456', position: '', role: 'User' }
   showAddModal.value = true
 }
-//addUser//
+
 async function addUser() {
   try {
     await createUser({
       name: newUser.value.name,
-      username: newUser.value.username, // ✅ backend email চায়
+      username: newUser.value.username,
       password: newUser.value.password,
-      role: newUser.value.role,
+      role: roleMap[newUser.value.role] || "ROLE_USER",
       position: newUser.value.position,
     });
-
     await loadUsers();
     showAddModal.value = false;
   } catch (err) {
@@ -249,17 +194,15 @@ async function addUser() {
   }
 }
 
-
-//saveEdit//
+// Save edit
 async function saveEdit() {
   try {
     await updateUser(selectedUser.value.id, {
       name: selectedUser.value.name,
       username: selectedUser.value.username,
-      role: selectedUser.value.role,
+      role: roleMap[selectedUser.value.role] || "ROLE_USER",
       position: selectedUser.value.position
     });
-
     await loadUsers();
     showEditModal.value = false;
   } catch (err) {
@@ -267,15 +210,10 @@ async function saveEdit() {
   }
 }
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredUsers.value.length / pageSize);
-});
-
-
-//roleUpdate//
+// Update role from dropdown
 async function updateRole(user, role) {
   try {
-    await updateUser(user.id, { role });
+    await updateUser(user.id, { role: roleMap[role] || "ROLE_USER" });
     await loadUsers();
   } catch (err) {
     console.error("Role update error:", err);
@@ -287,72 +225,63 @@ function handleOverlayClick(e) {
     showDeleteModal.value = false;
   }
 }
-
-
 </script>
+
 
 <template>
   <div class="page">
-    <header class="page-header">
-  <h1>User Management</h1>
-
-  <div style="display:flex; gap:12px; align-items:center;">
-    <input
-      v-model="searchQuery"
-      type="text"
-      placeholder="Search users..."
-      class="search-input"
-    />
-
-    <button class="add-user-btn" @click="openAddUser">
-      + Add User
-    </button>
-  </div>
-</header>
-
+    <header class="page-header" ref="headerRef">
+      <h1>User Management</h1>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <input v-model="searchQuery" type="text" placeholder="Search users..." class="search-input" />
+        <button class="add-user-btn" @click="openAddUser">+ Add User</button>
+      </div>
+    </header>
 
     <!-- Users Table -->
     <div class="table-wrapper">
       <table class="users-table">
         <thead>
-        <tr>
-          <th>Fullname</th>
-          <th>Username/Email</th>
-          <th>Position</th>
-          <th>Role</th>
-          <th>Actions</th>
-        </tr>
+          <tr>
+            <th>Fullname</th>
+            <th>Username/Email</th>
+            <th>Position</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
-        <tr v-for="user in paginatedUsers" :key="user.id">
-          <td>{{ user.name }}</td>
-          <td>{{ user.email || user.username}}</td>
-          <td>{{ user.position }}</td>
-          <td>
-            <span :class="['role', user.role.replace(' ', '')]">{{ user.role }}</span>
-          </td>
-          <td class="relative">
-            <!-- Action dropdown -->
-            <div class="dropdown-wrapper">
-              <button @click="toggleDropdown(user.id, $event )">
-                <MoreVertical class="w-5 h-5"/>
-              </button>
-              <div v-if="openDropdownId === user.id" class="dropdown" :style="{
-                top: dropdownPosition.top + 'px',
-                left: dropdownPosition.left + 'px'
-              }">
-                <ul>
-                  <li @click="openView(user); openDropdownId=null">View</li>
-                  <li @click="openEdit(user); openDropdownId=null">Edit</li>
-                  <li @click="openDelete(user); openDropdownId=null">Delete</li>
-                  <li @click="updateRole(user, 'User'); openDropdownId=null">Make User</li>
-                  <li @click="updateRole(user, 'Admin'); openDropdownId=null">Make Admin</li>
-                  <li @click="updateRole(user, 'Project Manager'); openDropdownId=null">Make Project Manager</li>
-                </ul>
+          <tr v-for="user in paginatedUsers" :key="user.id">
+            <td>{{ user.name }}</td>
+            <td>{{ user.email || user.username}}</td>
+            <td>{{ user.position }}</td>
+            <td>
+              <span :class="['role', user.displayRole.replace(' ', '')]">
+                {{ user.displayRole }}
+              </span>
+            </td>
+            <td class="relative">
+              <div class="dropdown-wrapper">
+                <button @click.stop="toggleDropdown(user.id, $event)">
+                  <MoreVertical class="w-5 h-5"/>
+                </button>
+                <Teleport to="body">
+                  <div v-if="openDropdownId === user.id" class="dropdown"
+                       :style="{ top: dropdownPosition.top + 'px', left: dropdownPosition.left + 'px' }"
+                       @click.stop>
+                    <ul>
+                      <li @click="openView(user); openDropdownId=null">View</li>
+                      <li @click="openEdit(user); openDropdownId=null">Edit</li>
+                      <li @click="openDelete(user); openDropdownId=null">Delete</li>
+                      <li @click="updateRole(user, 'User'); openDropdownId=null">Make User</li>
+                      <li @click="updateRole(user, 'Admin'); openDropdownId=null">Make Admin</li>
+                      <li @click="updateRole(user, 'Project Manager'); openDropdownId=null">Make Project Manager</li>
+                    </ul>
+                  </div>
+                </Teleport>
               </div>
-            </div>
-          </td>
-        </tr>
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -369,15 +298,13 @@ function handleOverlayClick(e) {
       <div class="modal-box">
         <div class="modal-header">
           <h2>User Details</h2>
-          <button @click="showViewModal=false">
-            <X class="w-5 h-5"/>
-          </button>
+          <button class="modal-close-btn" @click="showViewModal=false"><X /></button>
         </div>
         <div class="modal-body">
           <p><strong>Name:</strong> {{ selectedUser.name }}</p>
           <p><strong>Username:</strong> {{ selectedUser.username }}</p>
           <p><strong>Position:</strong> {{ selectedUser.position }}</p>
-          <p><strong>Role:</strong> {{ selectedUser.role }}</p>
+          <p><strong>Role:</strong> {{ roleMapReverse[selectedUser.role] || selectedUser.displayRole }}</p>
         </div>
       </div>
     </div>
@@ -387,23 +314,21 @@ function handleOverlayClick(e) {
       <div class="modal-box edit-modal">
         <div class="modal-header">
           <h2>Edit User</h2>
-          <button @click="showEditModal=false">
-            <X class="w-5 h-5"/>
-          </button>
+          <button class="modal-close-btn" @click="showEditModal=false"><X /></button>
         </div>
         <div class="modal-body form-page">
           <label>Name</label>
-       <input v-model="selectedUser.name" placeholder="Name"/>
-       <label>username</label>
-       <input v-model="selectedUser.username" placeholder="username"/>
-       <label>position</label>
-       <input v-model="selectedUser.position" placeholder="Position"/>
-         <label>Role</label>
-        <select v-model="selectedUser.role">
-        <option>User</option>
-        <option>Admin</option>
-        <option>Project Manager</option>
-</select>
+          <input v-model="selectedUser.name" placeholder="Name"/>
+          <label>Username</label>
+          <input v-model="selectedUser.username" placeholder="Username"/>
+          <label>Position</label>
+          <input v-model="selectedUser.position" placeholder="Position"/>
+          <label>Role</label>
+          <select v-model="selectedUser.role">
+            <option>User</option>
+            <option>Admin</option>
+            <option>Project Manager</option>
+          </select>
         </div>
         <div class="modal-footer">
           <button class="bg-green" @click="saveEdit">Save</button>
@@ -412,85 +337,69 @@ function handleOverlayClick(e) {
     </div>
 
     <!-- DELETE MODAL -->
-    <div v-if="showDeleteModal" class="modal-overlay" @click ="handleOverlayClick">
+    <div v-if="showDeleteModal" class="modal-overlay" @click="handleOverlayClick">
       <div class="modal-box">
         <div class="modal-header">
           <h2>Delete User?</h2>
-          <button @click="showDeleteModal=false">
-            <X class="w-5 h-5"/>
-          </button>
+          <button class="modal-close-btn" @click="showDeleteModal=false"><X /></button>
         </div>
         <div class="modal-body">
           <p>Are you sure you want to delete <strong>{{ selectedUser.name }}</strong>?</p>
         </div>
         <div class="modal-footer">
           <button @click="showDeleteModal=false">Cancel</button>
-         <button class="bg-red" @click="confirmDeleteUser">Delete</button>
+          <button class="bg-red" @click="confirmDeleteUser">Delete</button>
         </div>
       </div>
     </div>
 
-  </div>
-  <!-- ADD USER MODAL -->
-<div v-if="showAddModal" class="modal-overlay" @click.self=" showAddModal = false">
-  <div class="modal-box add-user-modal">
-    <div class="modal-header">
-      <h2>Add New User</h2>
-      <button class="cross" @click="showAddModal=false">
-        <X class="w-5 h-5" />
-      </button>
-    </div>
-
-    <div class="modal-body form-page">
-      <label>Full Name</label>
-      <input v-model="newUser.name" placeholder="Enter full name" />
-
-      <div class="form-row">
-        <div class="form-col">
-          <label>Username / Email</label>
-          <input v-model="newUser.username" placeholder="Enter username" />
+    <!-- ADD USER MODAL -->
+    <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal=false">
+      <div class="modal-box add-user-modal">
+        <div class="modal-header">
+          <h2>Add New User</h2>
+          <button class="cross" @click="showAddModal=false"><X class="w-5 h-5"/></button>
         </div>
-
-        <div class="form-col">
-          <label>Password</label>
-          <div class="password-field">
-            <input
-              :type="showPassword ? 'text' : 'text'"
-              v-model="newUser.password"
-              placeholder="Password"
-            />
-      
-            <button class="regen-btn" @click="regeneratePassword">↻</button>
+        <div class="modal-body form-page">
+          <label>Full Name</label>
+          <input v-model="newUser.name" placeholder="Enter full name"/>
+          <div class="form-row">
+            <div class="form-col">
+              <label>Username / Email</label>
+              <input v-model="newUser.username" placeholder="Enter username"/>
+            </div>
+            <div class="form-col">
+              <label>Password</label>
+              <div class="password-field">
+                <input :type="showPassword ? 'text' : 'text'" v-model="newUser.password" placeholder="Password"/>
+                <button class="regen-btn" @click="regeneratePassword">↻</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-col">
+              <label>Position</label>
+              <input v-model="newUser.position" placeholder="Position"/>
+            </div>
+            <div class="form-col">
+              <label>Role</label>
+              <select v-model="newUser.role">
+                <option>User</option>
+                <option>Admin</option>
+                <option>Project Manager</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-col">
-          <label>Position</label>
-          <input v-model="newUser.position" placeholder="Position" />
-        </div>
-
-        <div class="form-col">
-          <label>Role</label>
-          <select v-model="newUser.role">
-            <option>User</option>
-            <option>Admin</option>
-            <option>Project Manager</option>
-          </select>
+        <div class="modal-footer">
+          <button class="cancle" @click="showAddModal=false">Cancel</button>
+          <button class="bg-green" @click="addUser">Add User</button>
         </div>
       </div>
-    </div> <!-- closes modal-body -->
-
-    <div class="modal-footer">
-      <button class="cancle" @click="showAddModal=false">Cancel</button>
-      <button class="bg-green" @click="addUser">Add User</button>
     </div>
   </div>
-</div>
-
-
 </template>
+
 
 <style scoped>
 .page {
@@ -544,6 +453,7 @@ function handleOverlayClick(e) {
   overflow-y: auto;
   position: relative;
   z-index: 1;
+  overflow-x: visible; /* 🔥 */
 }
 
 
@@ -607,11 +517,6 @@ tbody tr:hover {
   background-color: #3b82f6;
 }
 
-/* Dropdown */
-/*.dropdown-wrapper {
-  height: calc(100vh - 140px);
-  overflow: auto;
-}*/
 
 .dropdown-wrapper button {
   border: none;
@@ -624,11 +529,11 @@ tbody tr:hover {
   background-color: transparent;
 }
 
-.table-wrapper {
-  max-height: 400px; /* header + pagination adjust */
+/* .table-wrapper {
+  max-height: 400px; 
   overflow-y: auto;
   margin-bottom: 20px;
-}
+} */
 
 /* Table */
 .users-table thead th {
@@ -640,7 +545,7 @@ tbody tr:hover {
 
 /* Dropdown */
 .dropdown {
-  position: fixed;   /* 🔥 THIS FIXES EVERYTHING */
+  position: fixed;          /* 🔥 FIX */
   max-height: 250px;
   overflow-y: auto;
   width: 180px;
@@ -648,7 +553,7 @@ tbody tr:hover {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  z-index: 9999;
+  z-index: 9999;            /* 🔥 header er upor thakbe */
 }
 
 
@@ -727,7 +632,7 @@ tbody tr:hover {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 90px; /* header নিচে থাকবে */
+  padding-top: calc(var(--header-height, 80px) + 10px);
   background: rgba(0, 0, 0, 0.4);
   z-index: 999;
 }
@@ -804,6 +709,33 @@ tbody tr:hover {
 .modal-footer .bg-red:hover {
   background: #dc2626;
 }
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #6b7280; /* normal gray */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-btn:hover {
+  color: #374151; /* slightly darker */
+  background: transparent;
+}
+
+.modal-close-btn:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.modal-close-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
 
 
 .add-user-btn {
@@ -1023,6 +955,18 @@ tbody tr:hover {
 .add-user-modal .modal-body select:focus {
   border-color: #3ca077;
   box-shadow: 0 0 6px rgba(60, 160, 119, 0.25);
+}
+
+.role.User {
+  background-color: #6b7280;
+}
+
+.role.Admin {
+  background-color: #ef4444;
+}
+
+.role.ProjectManager {
+  background-color: #3b82f6;
 }
 
 

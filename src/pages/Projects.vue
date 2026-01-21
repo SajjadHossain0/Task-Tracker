@@ -138,18 +138,22 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
-  <!-- ADD PROJECT MODAL -->
-  <div v-if="showModal" class="modal-bg" @click.self="showModal = false">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Create Project</h2>
-        <button class="close-btn" @click="showModal = false"><X class="icon"/></button>
-      </div>
-      <input v-model="newProject.name" placeholder="Project Name" class="input"/>
-      <textarea v-model="newProject.description" placeholder="Project Description" class="textarea"></textarea>
-      <button class="btn full" @click="createProject">Create</button>
+ <!-- ADD PROJECT MODAL -->
+<div v-if="showModal" class="modal-bg" @click.self="showModal = false">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Create Project</h2>
+      <button class="close-btn" @click="showModal = false"><X class="icon"/></button>
+    </div>
+    <input v-model="newProject.name" placeholder="Project Name" class="input"/>
+    <textarea v-model="newProject.description" placeholder="Project Description" class="textarea"></textarea>
+    
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn" @click="createProject">Create</button>
     </div>
   </div>
+</div>
 
   <!-- PROJECT CARDS -->
   <div class="card-grid">
@@ -326,4 +330,38 @@ onBeforeUnmount(() => {
   border-radius:6px; 
   box-sizing:border-box; }
 .full { width:100%; }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end; /* Right side e align */
+  margin-top: 15px;
+}
+
+.close-btn {
+  background: transparent;  /* kono color na */
+  border: none;             /* kono border na */
+  padding: 4px;             /* normal padding */
+  cursor: pointer;          /* pointer cursor */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;           /* normal gray color */
+  transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+  color: #374151;           /* slightly darker on hover */
+  background: transparent;  /* kono background change na */
+}
+
+.close-btn:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.close-btn .icon {
+  width: 20px;
+  height: 20px;
+}
+
 </style>

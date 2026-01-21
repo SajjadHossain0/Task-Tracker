@@ -15,7 +15,15 @@ const project = ref(null);
 const selectedFile = ref(null);
 
 function handleFile(e) {
-  selectedFile.value = e.target.files[0];
+  const file = e.target.files[0];
+  selectedFile.value = file;
+
+  if (file) {
+    // browser temporary URL generate
+    uploadedFileUrl.value = URL.createObjectURL(file);
+  } else {
+    uploadedFileUrl.value = null;
+  }
 }
 
 const showTaskModal = ref(false);
@@ -52,8 +60,6 @@ const filteredTasks = computed(() => {
 async function loadTasks() {
   try {
     const data = await getTasksByProject(projectId);
-    console.log("RAW TASK API DATA 👉", data);
-
     const mappedTasks = [];
 
     for (const t of data) {
@@ -66,14 +72,21 @@ async function loadTasks() {
 
       const userName = await resolveUserName(assignedId);
 
-      mappedTasks.push({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        assignedUserId: assignedId,
-        assignedUserName: userName,
-        status: t.status
-      });
+mappedTasks.push({
+  id: t.id,
+  title: t.title,
+  description: t.description,
+  assignedUserId: assignedId,
+  assignedUserName: userName,
+  status: t.status,
+fileUrl: t.file?.url
+  ? FILE_BASE_URL + t.file.url
+  : t.fileUrl
+    ? FILE_BASE_URL + t.fileUrl
+    : null
+
+});
+
     }
 
     tasks.value = mappedTasks;
@@ -102,57 +115,60 @@ async function loadProject() {
   }
 }
 
-
-
+//addTask//
 async function addTask() {
   if (!newTask.value.title || !newTask.value.assigned) {
     alert("Please fill all required fields");
     return;
   }
 
-  const formData = new FormData();
-
-  const taskPayload = {
-    title: newTask.value.title,
-    description: newTask.value.description,
-    status: newTask.value.status,        // PENDING / DONE
-    assignedUserId: Number(newTask.value.assigned),
-    projectId: Number(projectId),
-  };
-  console.log(taskPayload);
-
-  // 🔥 MUST be JSON STRING
-  formData.append(
-  "task",
-  new Blob([JSON.stringify(taskPayload)], {
-    type: "application/json"
-  })
-); 
-console.log(formData.get("task"))
-
-  // 🔥 optional file
-  if (selectedFile.value) {
-    formData.append("file", selectedFile.value);
-  }
-const savedTask = await createTask(formData);
-
   try {
-const assignedId =
-  savedTask.assignedUserId ??
-  savedTask.assignedUser?.id;
+    const formData = new FormData();
 
-const userName = await resolveUserName(assignedId);
+    const taskPayload = {
+      title: newTask.value.title,
+      description: newTask.value.description,
+      status: newTask.value.status,
+      assignedUserId: Number(newTask.value.assigned),
+      projectId: Number(projectId),
+    };
 
-tasks.value.push({
-  id: savedTask.id,
-  title: savedTask.title,
-  description: savedTask.description,
-  assignedUserId: assignedId,
-  assignedUserName: userName,
-  status: savedTask.status,
-});
+    formData.append(
+      "task",
+      new Blob([JSON.stringify(taskPayload)], {
+        type: "application/json",
+      })
+    );
 
+    if (selectedFile.value) {
+      formData.append("file", selectedFile.value);
+    }
 
+    // ✅ CREATE TASK
+    const savedTask = await createTask(formData);
+
+    // ✅ resolve username
+    const assignedId =
+      savedTask.assignedUserId ??
+      savedTask.assignedUser?.id ??
+      taskPayload.assignedUserId;
+
+    const userName = await resolveUserName(assignedId);
+
+    // ✅ PUSH DIRECTLY TO UI (NO RELOAD)
+    tasks.value.unshift({
+      id: savedTask.id,
+      title: savedTask.title,
+      description: savedTask.description,
+      assignedUserId: assignedId,
+      assignedUserName: userName,
+      status: savedTask.status,
+      fileUrl: savedTask.file?.url
+        ? FILE_BASE_URL + savedTask.file.url
+        : null,
+    });
+
+    // ✅ RESET FORM
     newTask.value = {
       title: "",
       description: "",
@@ -161,13 +177,14 @@ tasks.value.push({
     };
 
     selectedFile.value = null;
+    uploadedFileUrl.valuev = null;
     showTaskModal.value = false;
-window.location.reload();
   } catch (err) {
-    console.error(err);
+    console.error("Task create failed:", err);
     alert("Task create failed");
   }
 }
+
 
 //fucntion loadUser//
 async function loadUsers() {
@@ -179,6 +196,7 @@ async function loadUsers() {
       name: u.name || u.fullName || u.username || "Unknown"
     }));
     console.log("Normalized Users 👉", users.value);
+
   } catch (err) {
     console.error("Failed to load users:", err.message);
   }
@@ -249,10 +267,26 @@ const showViewModal = ref(false);
 const activeTask = ref(null);
 
 function viewTask(task) {
-  activeTask.value = task;
+  activeTask.value = {
+    id: task.id,
+    title: task.title || "Untitled Task",
+
+    // 🔥 FIX IS HERE
+    description:
+      task.description && task.description.trim() !== ""
+        ? task.description
+        : "No description provided",
+
+    assignedUserName: task.assignedUserName || "Unknown",
+    status: task.status || "PENDING",
+    fileUrl: task.fileUrl || null
+  };
+
   showViewModal.value = true;
   activeMenu.value = null;
 }
+
+
 //EditFunction//
 const showEditModal = ref(false);
 const editTaskData = ref({});
@@ -331,6 +365,11 @@ async function saveEdit() {
         ...tasks.value[index],
         ...updated,
         assignedUserName: userName,
+      fileUrl:
+             updated.file?.url ??
+             tasks.value[index].fileUrl ??
+             null
+
       };
     }
 
@@ -364,13 +403,19 @@ const editUserData = ref({
   position: ""
 });
 
+const uploadedFileUrl = ref(null);
+
+
 </script>
 
 
 <template>
   <div class="page">
     <div class="header">
-      <h1>Project #{{ projectId }}</h1>
+      <div class="project-header">
+  <h1>Project-{{ projectId }} {{ project?.name || "Unnamed Project" }}</h1>
+</div>
+
       <div class="header-controls">
         <input v-model="searchQuery" placeholder="Search tasks..." class="search-input" />
         <select v-model="statusFilter" class="status-filter">
@@ -429,25 +474,40 @@ const editUserData = ref({
         </div>
 
         <div class="modal-body">
-          <div class="input-fields">
-            <input v-model="newTask.title" placeholder="Title" class="input" />
-            <textarea v-model="newTask.description" placeholder="Description" class="textarea"></textarea>
-            <input type="file" class="input" @change="handleFile" />
+  <div class="input-group">
+    <label>Title</label>
+    <input v-model="newTask.title" placeholder="Enter title" class="input" />
+  </div>
 
-            <select v-model="newTask.assigned" class="input">
-  <option value="" disabled>Select User</option>
-  <option 
-    v-for="user in users" 
-    :key="user.id" 
-    :value="user.id"
-  >
-    {{ user.name }}
-  </option>
-</select>
+  <div class="input-group">
+    <label>Description </label>
+    <textarea v-model="newTask.description" placeholder="Enter description" class="textarea"></textarea>
+  </div>
 
-          </div>
-        </div>
+    <div class="input-group">
+    <label>Assign User</label>
+    <select v-model="newTask.assigned" class="input">
+      <option value="" disabled>Select User</option>
+      <option 
+        v-for="user in users" 
+        :key="user.id" 
+        :value="user.id"
+      >
+        {{ user.name }}
+      </option>
+    </select>
+  </div>
 
+  <div class="input-group">
+    <label>Upload File (optional)</label>
+    <input type="file" class="input" @change="handleFile" />
+    <div v-if="uploadedFileUrl" class="file-preview">
+      <a :href="uploadedFileUrl" target="_blank" download>
+        {{ selectedFile?.name }}
+      </a>
+    </div>
+  </div>
+</div>
         <div class="modal-footer">
           <button class="btn full" @click="addTask">
             <Plus class="icon" /> Add Task
@@ -461,20 +521,49 @@ const editUserData = ref({
 
 <div v-if="showViewModal" class="modal-bg" @click.self="showViewModal=false">
   <div class="modal">
-    <div class="modal-header">
-      <h2>{{ activeTask.title }}</h2>
+    <div class="modal-body">
+         <div class="modal-header fixed-header">
+      <h2>Task Details</h2>
       <button class="close-btn" @click="showViewModal=false">
         <X />
       </button>
     </div>
+  <div class="detail-row">
+    <span class="label">Description :</span>
+    <span class="value">{{ activeTask.description }}</span>
+  </div>
 
-    <div class="modal-body">
-      <p><b>Description:</b></p>
-      <p>{{ activeTask.description }}</p>
+  <div class="detail-row">
+    <span class="label">Assigned :</span>
+    <span class="value">{{ activeTask.assignedUserName }}</span>
+  </div>
 
-      <p><b>Assigned To:</b> {{ activeTask.assignedUserName }}</p>
-      <p><b>Status:</b> {{ activeTask.status }}</p>
-    </div>
+  <div class="detail-row">
+    <span class="label">Status :</span>
+    <span class="value status">{{ activeTask.status }}</span>
+  </div>
+
+<div class="detail-row">
+  <span class="label">File  :</span>
+  <span class="value file-row">
+    <template v-if="activeTask.fileUrl">
+      <a
+        :href="activeTask.fileUrl"
+        target="_blank"
+        rel="noopener"
+      >
+        {{ activeTask.fileUrl.split('/').pop() }}
+      </a>
+    </template>
+
+    <!-- 🔥 NO FILE → SHOW BLACK FILE ICON -->
+    <span v-else class="no-file">
+      <FileText class="file-icon" />
+      No file
+    </span>
+  </span>
+</div>
+</div>
   </div>
 </div>
 
@@ -487,30 +576,50 @@ const editUserData = ref({
     </div>
 
     <div class="modal-body">
-      <input v-model="editTaskData.title" class="input" placeholder="Title" />
-      <textarea v-model="editTaskData.description" class="textarea" placeholder="Description"></textarea>
+  <div class="input-group">
+    <label>Title</label>
+    <input v-model="editTaskData.title" class="input" placeholder="Enter title" />
+  </div>
 
-      <select v-model="editTaskData.status" class="input">
-        <option value="PENDING">PENDING</option>
-        <option value="IN_PROGRESS">IN_PROGRESS</option>
-        <option value="DONE">DONE</option>
-      </select>
+  <div class="input-group">
+    <label>Description</label>
+    <textarea v-model="editTaskData.description" class="textarea" placeholder="Enter description"></textarea>
+  </div>
 
-      <select v-model="editTaskData.assignedUserId" class="input">
-  <option value="" disabled>Select User</option>
-  <option 
-    v-for="user in users" 
-    :key="user.id" 
-    :value="user.id"
-  >
-    {{ user.name }}
-  </option>
-</select>
-      <label class="input">
-        Upload File (optional)
-        <input type="file" @change="e => editTaskData.file = e.target.files[0]" />
-      </label>
+  <div class="input-group">
+    <label>Status</label>
+    <select v-model="editTaskData.status" class="input">
+      <option value="PENDING">PENDING</option>
+      <option value="IN_PROGRESS">IN_PROGRESS</option>
+      <option value="DONE">DONE</option>
+    </select>
+  </div>
+
+  <div class="input-group">
+    <label>Assign User</label>
+    <select v-model="editTaskData.assignedUserId" class="input">
+      <option value="" disabled>Select User</option>
+      <option 
+        v-for="user in users" 
+        :key="user.id" 
+        :value="user.id"
+      >
+        {{ user.name }}
+      </option>
+    </select>
+  </div>
+
+ <div class="input-group">
+    <label>Upload File (optional)</label>
+    <input type="file" class="input" @change="handleFile" />
+    <div v-if="uploadedFileUrl" class="file-preview">
+      <a :href="uploadedFileUrl" target="_blank" download>
+        {{ selectedFile?.name }}
+      </a>
     </div>
+  </div>
+</div>
+
 
     <div class="modal-footer">
       <button class="btn full" @click="saveEdit">Save</button>
@@ -643,13 +752,15 @@ const editUserData = ref({
 }
 .modal {
   background: white;
-  width: 500px;
-  max-height: 80vh;
-  border-radius: 10px;
+  width: 420px;              /* 🔥 width reduced */
+  max-width: 95%;
+  max-height: 75vh;
+  border-radius: 12px;       /* smoother */
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -664,11 +775,13 @@ const editUserData = ref({
   cursor: pointer;
 }
 .modal-body {
-  padding: 20px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-   overflow-y: auto;
+  gap: 10px;              /* 🔥 spacing between rows */
+  overflow-y: auto;
 }
+
 .input-fields {
   display: flex;
   flex-direction: column;
@@ -759,6 +872,107 @@ const editUserData = ref({
 
 .dropdown .danger {
   color: #d9534f;
+}
+
+.detail-row {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13.5px;
+  align-items: flex-start;
+}
+
+
+.detail-row .label {
+  min-width: 85px;
+  font-weight: bold;
+  font-size: 13px;
+  color: black;
+  text-transform: uppercase;   /* 🔥 clean look */
+}
+
+
+.detail-row .value {
+  flex: 1;
+  color: #222;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+
+.detail-row .value a {
+  color: #3ca077;
+  text-decoration: underline;
+}
+
+.detail-row .muted {
+  color: #999;
+}
+
+.detail-row .status {
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* File column fixed width */
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;     /* 🔥 fixed width */
+}
+
+/* No file text fixed & aligned */
+.no-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #111;
+  font-size: 13px;
+  white-space: nowrap; /* 🔥 line break হবে না */
+}
+
+/* File icon */
+.file-icon {
+  width: 16px;
+  height: 16px;
+  color: #000;
+}
+
+/* File link also aligned same way */
+.file-link {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;    /* 🔥 same width */
+  display: inline-block;
+}
+.close-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  min-width: none;
+}
+
+.file-preview a {
+  display: inline-block;
+  margin-top: 6px;
+  color: #3ca077;
+  text-decoration: underline;
+  font-size: 14px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.input-group label {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #333;
 }
 
 </style>
